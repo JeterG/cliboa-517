@@ -18,6 +18,7 @@ Thumbs.db
 # Python
 __pycache__
 .pydevproject
+/venv*
 
 # cliboa
 .coverage*
