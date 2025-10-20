@@ -18,6 +18,7 @@ import hashlib
 import os
 import re
 import shutil
+import operator
 from datetime import datetime
 from enum import Enum
 from typing import Any, List, Set, Tuple
@@ -1204,6 +1205,137 @@ class CsvDuplicateRowDelete(FileBaseTransform):
             sep=self._delimiter,
             encoding=self._encoding,
         )
+
+
+"""
+TODO:
+    create a class that  filters rows
+     based on column values in those rows.
+     only filter using dates and numbers 
+    required arguments "src_dir", "src_pattern", and at least one of "gt", "ge", "lt", "le", "eq", or "ne"
+    Write tests
+
+
+"""
+
+
+class CsvColumnBasedRowDelete(FileBaseTransform):
+    """
+    Deletes a row based on matching conditions in specified columns.
+
+    """
+
+    def __init__(self, operator, value):
+        super().__init__()
+        self._delimiter = ","
+        self._engine = "pandas"
+        self._operator = operator
+
+    def delimiter(self, delimiter):
+        self._delimiter = delimiter
+
+    def comparison(self, comparison):
+        ## TODO build a meothod to also use multiple operators if mutliple columns and values are presented.
+        """Sets the operator that is going to be used in the comparison.
+
+        Args:
+            operator (str): one of "gt", "ge", "lt", "le", "eq", or "ne" that will be the comparison operator.
+        """
+
+        comparisons = {
+            "gt": operator.gt,  # >
+            "ge": operator.ge,  # >=
+            "lt": operator.lt,  # <
+            "le": operator.le,  # <=
+            "eq": operator.eq,  # ==
+            "ne": operator.ne,  # !=
+        }
+
+        if comparison.lower() not in comparisons.keys():
+            raise InvalidParameter(f"Operation must be one of { comparisons.keys()}")
+        self._operation = comparisons[comparison]
+
+    def value(self, value):
+        """Sets teh value that will be used in the comparison.
+
+        Args:
+            value: the value to compare the column value to for removing the relevant rows
+        """
+
+        self._value = value
+
+    def column(self, column):
+        ##TODO build a method to also use multiple columns and values to compare.
+        """Sets the column that will be used for the comparison
+
+        Args:
+            column (_type_): _description_
+        """
+        self._column = column
+
+    def _convert_with_pandas(self, fi, fo):
+        """
+        Memory-efficient duplicate removal using pandas with set for tracking
+        seen rows.
+
+        Preserves original row order.
+        """
+        # Use existing chunk_size_handling infrastructure
+        chunk_size_handling(self._read_csv_func, fi, fo)
+
+    def _read_csv_func(self, chunksize, fi, fo):
+        """
+        Process CSV in chunks to remove rows that match column conditions.
+        Used by chunk_size_handling for memory-efficient processing.
+        """
+        # Initialize state for each execution
+        seen_rows = set()
+        first_write = True
+
+        # Get the postion number of the column compared.
+        header = pandas.read_csv(fi, nrows=0).columns.tolist()
+        self.column(header.index(self._column))
+
+        for chunk in pandas.read_csv(
+            fi,
+            delimiter=self._delimiter,
+            dtype=str,
+            na_filter=False,
+            chunksize=chunksize,
+            header=None,
+            encoding=self._encoding,
+            skiprows=1,
+        ):
+            # Perform the operation against all the rows in the chunk.
+            rows_to_keep = chunk[self._operation(chunk[self._column], self._value)]
+            unique_rows = []
+
+            if rows_to_keep:
+                rows_to_keep.to_csv(
+                    fo,
+                    mode="w" if first_write else "a",
+                    header=False,
+                    index=False,
+                    sep=self._delimiter,
+                    encoding=self._encoding,
+                )
+                first_write = False
+
+    def execute(self, *args):
+        # essential parameters check
+        valid = EssentialParameters(
+            self.__class__.__name__,
+            [self._src_dir, self._src_pattern],
+        )
+        valid()
+
+        if self._dest_dir:
+            os.makedirs(self._dest_dir, exist_ok=True)
+
+        files = super().get_target_files(self._src_dir, self._src_pattern)
+
+        self.check_file_existence(files)
+        super().io_files(files, func=self.convert)
 
 
 class CsvRowDelete(FileBaseTransform):
