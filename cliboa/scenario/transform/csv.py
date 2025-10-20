@@ -1337,6 +1337,8 @@ class CsvColumnBasedRowDelete(FileBaseTransform):
         header = dask_df.read_csv(fi, delimiter=self._delimiter, nrows=0).columns.tolist()
         self.column(header.index(self._column))
 
+        first_write = True
+
         for chunk in dask_df.read_csv(
             fi,
             delimiter=self._delimiter,
