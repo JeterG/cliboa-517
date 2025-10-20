@@ -1269,9 +1269,17 @@ class CsvColumnBasedRowDelete(FileBaseTransform):
         """Sets the column that will be used for the comparison
 
         Args:
-            column (_type_): _description_
+            column (str): the name of the column that will be used in the filtering
         """
         self._column = column
+
+    def date_fmt(self, date_fmt):
+        """Sets the date format that will be used when comparing and filtering dates
+
+        Args:
+            date_fmt (str): the string based representation of the date format that will be used.
+        """
+        self._date_fmt = date_fmt
 
     def _convert_with_pandas(self, fi, fo):
         """
@@ -1286,13 +1294,13 @@ class CsvColumnBasedRowDelete(FileBaseTransform):
     def _read_csv_func(self, chunksize, fi, fo):
         """
         Process CSV in chunks to remove rows that match column conditions.
-        Used by chunk_size_handling for memory-efficient processing.
+        Used by chunk_size_handling for memory-efficient processing using pandas.
         """
         # Initialize state for each execution
         seen_rows = set()
         first_write = True
 
-        # Get the postion number of the column compared.
+        # Read the header to get column position
         header = pandas.read_csv(fi, nrows=0).columns.tolist()
         self.column(header.index(self._column))
 
@@ -1307,10 +1315,47 @@ class CsvColumnBasedRowDelete(FileBaseTransform):
             skiprows=1,
         ):
             # Perform the operation against all the rows in the chunk.
-            rows_to_keep = chunk[self._operation(chunk[self._column], self._value)]
+            filtered_df = chunk[self._operation(chunk[self._column], self._value)]
 
-            if rows_to_keep:
-                rows_to_keep.to_csv(
+            if filtered_df:
+                filtered_df.to_csv(
+                    fo,
+                    mode="w" if first_write else "a",
+                    header=False,
+                    index=False,
+                    sep=self._delimiter,
+                    encoding=self._encoding,
+                )
+                first_write = False
+
+    def _convert_with_dask(self, chunksize, fi, fo):
+        """
+        Process CSV in chunks to remove rows that match column conditions.
+        Used by chunk_size_handling for memory-efficient processing using dask.
+        """
+        # Read the header to get column position
+        header = dask_df.read_csv(fi, delimiter=self._delimiter, nrows=0).columns.tolist()
+        self.column(header.index(self._column))
+
+        for chunk in dask_df.read_csv(
+            fi,
+            delimiter=self._delimiter,
+            dtype=str,
+            na_filter=False,
+            encoding=self._encoding,
+            blocksize=chunksize,
+            assume_missing=True,
+            header=None,
+            skiprows=1,
+            names=header,
+        ).to_delayed():
+            chunk_df = chunk.compute()
+            # Perform the operation against all the rows in the chunk.
+
+            chunk_df = chunk_df[self._operation(chunk_df[self.column], self._value)]
+
+            if not chunk_df.empty:
+                chunk_df.to_csv(
                     fo,
                     mode="w" if first_write else "a",
                     header=False,
