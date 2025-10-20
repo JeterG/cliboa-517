@@ -1308,7 +1308,6 @@ class CsvColumnBasedRowDelete(FileBaseTransform):
         ):
             # Perform the operation against all the rows in the chunk.
             rows_to_keep = chunk[self._operation(chunk[self._column], self._value)]
-            unique_rows = []
 
             if rows_to_keep:
                 rows_to_keep.to_csv(
