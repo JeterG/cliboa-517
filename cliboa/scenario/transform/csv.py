@@ -1281,6 +1281,33 @@ class CsvColumnBasedRowDelete(FileBaseTransform):
         """
         self._date_fmt = date_fmt
 
+    def _apply_comparison(self, chunk, column_index):
+        """
+        Apply comparison operations to filter rows.
+
+        Args:
+            chunk: pandas DataFrame chunk
+            column_index: integer index of the column to compare (already set via self.column())
+
+        Returns:
+            Filtered DataFrame
+
+        Note: Uses self._value and self._operation which are set via setter methods
+        TODO: Expand to support multiple columns, values, and comparison operators
+        """
+        # Single column/value/operation logic
+        column_data = chunk.iloc[:, column_index] if hasattr(chunk, "iloc") else chunk[column_index]
+
+        # Handle date parsing if date_fmt is set
+        if hasattr(self, "_date_fmt") and self._date_fmt:
+            column_data = pandas.to_datetime(column_data, format=self._date_fmt)
+            comparison_value = pandas.to_datetime(self._value, format=self._date_fmt)
+        else:
+            comparison_value = self._value
+
+        # Apply operation and return filtered chunk
+        return chunk[self._operation(column_data, comparison_value)]
+
     def _convert_with_pandas(self, fi, fo):
         """
         Memory-efficient duplicate removal using pandas with set for tracking
@@ -1296,13 +1323,11 @@ class CsvColumnBasedRowDelete(FileBaseTransform):
         Process CSV in chunks to remove rows that match column conditions.
         Used by chunk_size_handling for memory-efficient processing using pandas.
         """
-        # Initialize state for each execution
-        seen_rows = set()
         first_write = True
 
         # Read the header to get column position
-        header = pandas.read_csv(fi, nrows=0).columns.tolist()
-        self.column(header.index(self._column))
+        header = pandas.read_csv(fi, delimiter=self._delimiter, nrows=0).columns.tolist()
+        column_index = header.index(self._column)  # DON'T call self.column() - use local variable
 
         for chunk in pandas.read_csv(
             fi,
@@ -1314,10 +1339,10 @@ class CsvColumnBasedRowDelete(FileBaseTransform):
             encoding=self._encoding,
             skiprows=1,
         ):
-            # Perform the operation against all the rows in the chunk.
-            filtered_df = chunk[self._operation(chunk[self._column], self._value)]
+            # Apply comparison operation using local column_index
+            filtered_df = self._apply_comparison(chunk, column_index)
 
-            if filtered_df:
+            if not filtered_df.empty:
                 filtered_df.to_csv(
                     fo,
                     mode="w" if first_write else "a",
@@ -1333,9 +1358,9 @@ class CsvColumnBasedRowDelete(FileBaseTransform):
         Process CSV in chunks to remove rows that match column conditions.
         Used by chunk_size_handling for memory-efficient processing using dask.
         """
-        # Read the header to get column position
-        header = dask_df.read_csv(fi, delimiter=self._delimiter, nrows=0).columns.tolist()
-        self.column(header.index(self._column))
+        # Read the header using pandas (dask doesn't support nrows parameter)
+        header = pandas.read_csv(fi, delimiter=self._delimiter, nrows=0).columns.tolist()
+        column_index = header.index(self._column)  # DON'T call self.column() - use local variable
 
         first_write = True
 
@@ -1349,12 +1374,12 @@ class CsvColumnBasedRowDelete(FileBaseTransform):
             assume_missing=True,
             header=None,
             skiprows=1,
-            names=header,
         ).to_delayed():
-            chunk_df = chunk.compute()
-            # Perform the operation against all the rows in the chunk.
 
-            chunk_df = chunk_df[self._operation(chunk_df[self.column], self._value)]
+            chunk_df = chunk.compute()
+
+            # Apply comparison operation using local column_index
+            chunk_df = self._apply_comparison(chunk_df, column_index)
 
             if not chunk_df.empty:
                 chunk_df.to_csv(
@@ -1382,6 +1407,35 @@ class CsvColumnBasedRowDelete(FileBaseTransform):
 
         self.check_file_existence(files)
         super().io_files(files, func=self.convert)
+
+    def engine(self, engine):
+        """Sets the processing engine to use.
+
+        Args:
+            engine (str): Either "pandas" or "dask"
+        """
+        valid_engines = ["pandas", "dask"]
+        if engine.lower() not in valid_engines:
+            raise InvalidParameter(f"Engine must be one of {valid_engines}")
+        self._engine = engine.lower()
+
+    def convert(self, fi, fo):
+        """
+        Main conversion method that dispatches to the appropriate engine.
+
+        Args:
+            fi: Input file path
+            fo: Output file path
+        """
+        if self._engine == "pandas":
+            self._convert_with_pandas(fi, fo)
+        elif self._engine == "dask":
+            # For dask, we need to pass chunksize
+            # Get default chunksize or use a reasonable default
+            chunksize = getattr(self, "_chunksize", 64 * 1024 * 1024)  # 64MB default
+            self._convert_with_dask(chunksize, fi, fo)
+        else:
+            raise InvalidParameter(f"Unknown engine: {self._engine}")
 
 
 class CsvRowDelete(FileBaseTransform):

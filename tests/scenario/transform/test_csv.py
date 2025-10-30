@@ -31,6 +31,7 @@ from cliboa.scenario.transform.csv import (
     CsvColumnSelect,
     CsvConcat,
     CsvConvert,
+    CsvColumnBasedRowDelete,
     CsvDuplicateRowDelete,
     CsvMerge,
     CsvMergeExclusive,
@@ -1671,6 +1672,424 @@ class TestCsvConvert(TestCsvTransform):
         output_file = os.path.join(self._data_dir, "test.csv")
         with open(output_file, "r") as o:
             self.assertEqual('key,data\n1,spa\\"m\n', o.read())
+
+
+class TestCsvColumnBasedRowDelete(TestCsvTransform):
+
+    def test_execute_eq_operator(self):
+        """Test equality operator - keep rows where col_1 == '2'"""
+        test_csv_data = [
+            ["col_1", "col_2"],
+            ["1", "A"],
+            ["2", "B"],
+            ["3", "C"],
+            ["2", "D"],
+        ]
+        self._create_csv(test_csv_data)
+
+        instance = CsvColumnBasedRowDelete("eq", "2")
+        Helper.set_property(instance, "logger", LisboaLog.get_logger(__name__))
+        Helper.set_property(instance, "src_dir", self._data_dir)
+        Helper.set_property(instance, "src_pattern", "test.csv")
+        Helper.set_property(instance, "dest_dir", self._data_dir)
+        Helper.set_property(instance, "column", "col_1")
+        Helper.set_property(instance, "comparison", "eq")
+        Helper.set_property(instance, "value", "2")
+        instance.execute()
+
+        output_file = os.path.join(self._data_dir, "test.csv")
+        with open(output_file, "r") as o:
+            reader = csv.reader(o)
+            rows = list(reader)
+
+        # Only data rows, no header
+        assert len(rows) == 2
+        self.assertEqual(["2", "B"], rows[0])
+        self.assertEqual(["2", "D"], rows[1])
+
+    def test_execute_ne_operator(self):
+        """Test not equal operator - keep rows where col_1 != '2'"""
+        test_csv_data = [
+            ["col_1", "col_2"],
+            ["1", "A"],
+            ["2", "B"],
+            ["3", "C"],
+        ]
+        self._create_csv(test_csv_data)
+
+        instance = CsvColumnBasedRowDelete("ne", "2")
+        Helper.set_property(instance, "logger", LisboaLog.get_logger(__name__))
+        Helper.set_property(instance, "src_dir", self._data_dir)
+        Helper.set_property(instance, "src_pattern", "test.csv")
+        Helper.set_property(instance, "dest_dir", self._data_dir)
+        Helper.set_property(instance, "column", "col_1")
+        Helper.set_property(instance, "comparison", "ne")
+        Helper.set_property(instance, "value", "2")
+        instance.execute()
+
+        output_file = os.path.join(self._data_dir, "test.csv")
+        with open(output_file, "r") as o:
+            reader = csv.reader(o)
+            rows = list(reader)
+
+        assert len(rows) == 2
+        self.assertEqual(["1", "A"], rows[0])
+        self.assertEqual(["3", "C"], rows[1])
+
+    def test_execute_gt_operator(self):
+        """Test greater than operator - keep rows where col_1 > '2'"""
+        test_csv_data = [
+            ["col_1", "col_2"],
+            ["1", "A"],
+            ["2", "B"],
+            ["3", "C"],
+            ["4", "D"],
+        ]
+        self._create_csv(test_csv_data)
+
+        instance = CsvColumnBasedRowDelete("gt", "2")
+        Helper.set_property(instance, "logger", LisboaLog.get_logger(__name__))
+        Helper.set_property(instance, "src_dir", self._data_dir)
+        Helper.set_property(instance, "src_pattern", "test.csv")
+        Helper.set_property(instance, "dest_dir", self._data_dir)
+        Helper.set_property(instance, "column", "col_1")
+        Helper.set_property(instance, "comparison", "gt")
+        Helper.set_property(instance, "value", "2")
+        instance.execute()
+
+        output_file = os.path.join(self._data_dir, "test.csv")
+        with open(output_file, "r") as o:
+            reader = csv.reader(o)
+            rows = list(reader)
+
+        assert len(rows) == 2
+        self.assertEqual(["3", "C"], rows[0])
+        self.assertEqual(["4", "D"], rows[1])
+
+    def test_execute_ge_operator(self):
+        """Test greater than or equal operator - keep rows where col_1 >= '2'"""
+        test_csv_data = [
+            ["col_1", "col_2"],
+            ["1", "A"],
+            ["2", "B"],
+            ["3", "C"],
+        ]
+        self._create_csv(test_csv_data)
+
+        instance = CsvColumnBasedRowDelete("ge", "2")
+        Helper.set_property(instance, "logger", LisboaLog.get_logger(__name__))
+        Helper.set_property(instance, "src_dir", self._data_dir)
+        Helper.set_property(instance, "src_pattern", "test.csv")
+        Helper.set_property(instance, "dest_dir", self._data_dir)
+        Helper.set_property(instance, "column", "col_1")
+        Helper.set_property(instance, "comparison", "ge")
+        Helper.set_property(instance, "value", "2")
+        instance.execute()
+
+        output_file = os.path.join(self._data_dir, "test.csv")
+        with open(output_file, "r") as o:
+            reader = csv.reader(o)
+            rows = list(reader)
+
+        assert len(rows) == 2
+        self.assertEqual(["2", "B"], rows[0])
+        self.assertEqual(["3", "C"], rows[1])
+
+    def test_execute_lt_operator(self):
+        """Test less than operator - keep rows where col_1 < '3'"""
+        test_csv_data = [
+            ["col_1", "col_2"],
+            ["1", "A"],
+            ["2", "B"],
+            ["3", "C"],
+            ["4", "D"],
+        ]
+        self._create_csv(test_csv_data)
+
+        instance = CsvColumnBasedRowDelete("lt", "3")
+        Helper.set_property(instance, "logger", LisboaLog.get_logger(__name__))
+        Helper.set_property(instance, "src_dir", self._data_dir)
+        Helper.set_property(instance, "src_pattern", "test.csv")
+        Helper.set_property(instance, "dest_dir", self._data_dir)
+        Helper.set_property(instance, "column", "col_1")
+        Helper.set_property(instance, "comparison", "lt")
+        Helper.set_property(instance, "value", "3")
+        instance.execute()
+
+        output_file = os.path.join(self._data_dir, "test.csv")
+        with open(output_file, "r") as o:
+            reader = csv.reader(o)
+            rows = list(reader)
+
+        assert len(rows) == 2
+        self.assertEqual(["1", "A"], rows[0])
+        self.assertEqual(["2", "B"], rows[1])
+
+    def test_execute_le_operator(self):
+        """Test less than or equal operator - keep rows where col_1 <= '2'"""
+        test_csv_data = [
+            ["col_1", "col_2"],
+            ["1", "A"],
+            ["2", "B"],
+            ["3", "C"],
+        ]
+        self._create_csv(test_csv_data)
+
+        instance = CsvColumnBasedRowDelete("le", "2")
+        Helper.set_property(instance, "logger", LisboaLog.get_logger(__name__))
+        Helper.set_property(instance, "src_dir", self._data_dir)
+        Helper.set_property(instance, "src_pattern", "test.csv")
+        Helper.set_property(instance, "dest_dir", self._data_dir)
+        Helper.set_property(instance, "column", "col_1")
+        Helper.set_property(instance, "comparison", "le")
+        Helper.set_property(instance, "value", "2")
+        instance.execute()
+
+        output_file = os.path.join(self._data_dir, "test.csv")
+        with open(output_file, "r") as o:
+            reader = csv.reader(o)
+            rows = list(reader)
+
+        assert len(rows) == 2
+        self.assertEqual(["1", "A"], rows[0])
+        self.assertEqual(["2", "B"], rows[1])
+
+    def test_execute_multiple_files(self):
+        """Test processing multiple CSV files"""
+        test_csv_data = [
+            ["col_1", "col_2"],
+            ["1", "A"],
+            ["2", "B"],
+            ["3", "C"],
+        ]
+        self._create_csv(test_csv_data, fname="test1.csv")
+        self._create_csv(test_csv_data, fname="test2.csv")
+
+        instance = CsvColumnBasedRowDelete("eq", "2")
+        Helper.set_property(instance, "logger", LisboaLog.get_logger(__name__))
+        Helper.set_property(instance, "src_dir", self._data_dir)
+        Helper.set_property(instance, "src_pattern", r"test.*\.csv")
+        Helper.set_property(instance, "dest_dir", self._data_dir)
+        Helper.set_property(instance, "column", "col_1")
+        Helper.set_property(instance, "comparison", "eq")
+        Helper.set_property(instance, "value", "2")
+        instance.execute()
+
+        files = glob(os.path.join(self._data_dir, "test*.csv"))
+        assert len(files) == 2
+
+        for file in files:
+            with open(file, "r") as f:
+                reader = csv.reader(f)
+                rows = list(reader)
+                assert len(rows) == 1
+                self.assertEqual(["2", "B"], rows[0])
+
+    def test_execute_no_matching_rows(self):
+        """Test when no rows match the condition - file should be empty or not exist"""
+        test_csv_data = [
+            ["col_1", "col_2"],
+            ["1", "A"],
+            ["2", "B"],
+            ["3", "C"],
+        ]
+        self._create_csv(test_csv_data)
+
+        instance = CsvColumnBasedRowDelete("eq", "5")
+        Helper.set_property(instance, "logger", LisboaLog.get_logger(__name__))
+        Helper.set_property(instance, "src_dir", self._data_dir)
+        Helper.set_property(instance, "src_pattern", "test.csv")
+        Helper.set_property(instance, "dest_dir", self._data_dir)
+        Helper.set_property(instance, "column", "col_1")
+        Helper.set_property(instance, "comparison", "eq")
+        Helper.set_property(instance, "value", "5")
+        instance.execute()
+
+        output_file = os.path.join(self._data_dir, "test.csv")
+        # File might not exist or be empty since no rows matched
+        if os.path.exists(output_file):
+            with open(output_file, "r") as o:
+                content = o.read()
+                assert content == "" or len(content.strip()) == 0
+
+    def test_execute_all_rows_match(self):
+        """Test when all rows match the condition"""
+        test_csv_data = [
+            ["col_1", "col_2"],
+            ["2", "A"],
+            ["2", "B"],
+            ["2", "C"],
+        ]
+        self._create_csv(test_csv_data)
+
+        instance = CsvColumnBasedRowDelete("eq", "2")
+        Helper.set_property(instance, "logger", LisboaLog.get_logger(__name__))
+        Helper.set_property(instance, "src_dir", self._data_dir)
+        Helper.set_property(instance, "src_pattern", "test.csv")
+        Helper.set_property(instance, "dest_dir", self._data_dir)
+        Helper.set_property(instance, "column", "col_1")
+        Helper.set_property(instance, "comparison", "eq")
+        Helper.set_property(instance, "value", "2")
+        instance.execute()
+
+        output_file = os.path.join(self._data_dir, "test.csv")
+        with open(output_file, "r") as o:
+            reader = csv.reader(o)
+            rows = list(reader)
+
+        assert len(rows) == 3
+        self.assertEqual(["2", "A"], rows[0])
+        self.assertEqual(["2", "B"], rows[1])
+        self.assertEqual(["2", "C"], rows[2])
+
+    def test_execute_tsv_delimiter(self):
+        """Test with TSV (tab-separated) files"""
+        test_tsv_data = [
+            ["col_1", "col_2", "col_3"],
+            ["1", "A", "SPAM1"],
+            ["2", "B", "SPAM2"],
+            ["3", "C", "SPAM3"],
+        ]
+        fpath = os.path.join(self._data_dir, "test.tsv")
+        with open(fpath, mode="w") as f:
+            writer = csv.writer(f, quoting=csv.QUOTE_ALL, delimiter="\t")
+            for r in test_tsv_data:
+                writer.writerow(r)
+
+        instance = CsvColumnBasedRowDelete("ne", "2")
+        Helper.set_property(instance, "logger", LisboaLog.get_logger(__name__))
+        Helper.set_property(instance, "src_dir", self._data_dir)
+        Helper.set_property(instance, "src_pattern", "test.tsv")
+        Helper.set_property(instance, "delimiter", "\t")
+        Helper.set_property(instance, "dest_dir", self._data_dir)
+        Helper.set_property(instance, "column", "col_1")
+        Helper.set_property(instance, "comparison", "ne")
+        Helper.set_property(instance, "value", "2")
+        instance.execute()
+
+        output_file = os.path.join(self._data_dir, "test.tsv")
+        with open(output_file, "r") as o:
+            reader = csv.reader(o)
+            rows = list(reader)
+
+        assert len(rows) == 2
+        self.assertEqual(["1\tA\tSPAM1"], rows[0])
+        self.assertEqual(["3\tC\tSPAM3"], rows[1])
+
+    def test_execute_empty_values(self):
+        """Test filtering with empty values in columns"""
+        test_csv_data = [
+            ["col_1", "col_2", "col_3"],
+            ["1", "", "SPAM1"],
+            ["2", "B", ""],
+            ["", "C", "SPAM3"],
+        ]
+        self._create_csv(test_csv_data)
+
+        instance = CsvColumnBasedRowDelete("ne", "")
+        Helper.set_property(instance, "logger", LisboaLog.get_logger(__name__))
+        Helper.set_property(instance, "src_dir", self._data_dir)
+        Helper.set_property(instance, "src_pattern", "test.csv")
+        Helper.set_property(instance, "dest_dir", self._data_dir)
+        Helper.set_property(instance, "column", "col_1")
+        Helper.set_property(instance, "comparison", "ne")
+        Helper.set_property(instance, "value", "")
+        instance.execute()
+
+        output_file = os.path.join(self._data_dir, "test.csv")
+        with open(output_file, "r") as o:
+            reader = csv.reader(o)
+            rows = list(reader)
+
+        assert len(rows) == 2
+        self.assertEqual(["1", "", "SPAM1"], rows[0])
+        self.assertEqual(["2", "B", ""], rows[1])
+
+    def test_execute_string_comparison(self):
+        """Test string comparisons (lexicographic ordering)"""
+        test_csv_data = [
+            ["col_1", "col_2"],
+            ["apple", "A"],
+            ["banana", "B"],
+            ["cherry", "C"],
+        ]
+        self._create_csv(test_csv_data)
+
+        instance = CsvColumnBasedRowDelete("gt", "banana")
+        Helper.set_property(instance, "logger", LisboaLog.get_logger(__name__))
+        Helper.set_property(instance, "src_dir", self._data_dir)
+        Helper.set_property(instance, "src_pattern", "test.csv")
+        Helper.set_property(instance, "dest_dir", self._data_dir)
+        Helper.set_property(instance, "column", "col_1")
+        Helper.set_property(instance, "comparison", "gt")
+        Helper.set_property(instance, "value", "banana")
+        instance.execute()
+
+        output_file = os.path.join(self._data_dir, "test.csv")
+        with open(output_file, "r") as o:
+            reader = csv.reader(o)
+            rows = list(reader)
+
+        assert len(rows) == 1
+        self.assertEqual(["cherry", "C"], rows[0])
+
+    def _test_engine_common(self, engine):
+        """Common test logic for both pandas and dask engines"""
+        test_csv_data = [
+            ["col_1", "col_2"],
+            ["1", "A"],
+            ["2", "B"],
+            ["3", "C"],
+            ["2", "D"],
+            ["4", "E"],
+        ]
+        self._create_csv(test_csv_data)
+
+        instance = CsvColumnBasedRowDelete("ge", "2")
+        Helper.set_property(instance, "logger", LisboaLog.get_logger(__name__))
+        Helper.set_property(instance, "src_dir", self._data_dir)
+        Helper.set_property(instance, "src_pattern", "test.csv")
+        Helper.set_property(instance, "dest_dir", self._data_dir)
+        Helper.set_property(instance, "engine", engine)
+        Helper.set_property(instance, "column", "col_1")
+        Helper.set_property(instance, "comparison", "ge")
+        Helper.set_property(instance, "value", "2")
+        instance.execute()
+
+        output_file = os.path.join(self._data_dir, "test.csv")
+        with open(output_file, "r") as o:
+            reader = csv.reader(o)
+            rows = list(reader)
+
+        # Should have 4 data rows where col_1 >= '2' (no header)
+        assert len(rows) == 4
+
+        # Check all expected data rows are present (order may vary)
+        data_rows = {tuple(row) for row in rows}
+        expected_data = {("2", "B"), ("3", "C"), ("2", "D"), ("4", "E")}
+        self.assertEqual(data_rows, expected_data)
+
+    def test_execute_pandas_engine(self):
+        """Test pandas engine"""
+        self._test_engine_common("pandas")
+
+    def test_execute_dask_engine(self):
+        """Test dask engine"""
+        self._test_engine_common("dask")
+
+    def test_invalid_comparison_operator(self):
+        """Test invalid comparison operator raises error"""
+        instance = CsvColumnBasedRowDelete("invalid", "2")
+        Helper.set_property(instance, "logger", LisboaLog.get_logger(__name__))
+
+        with pytest.raises(InvalidParameter):
+            Helper.set_property(instance, "comparison", "invalid_op")
+
+    def test_engine_invalid_parameter(self):
+        """Test invalid engine parameter"""
+        instance = CsvColumnBasedRowDelete("eq", "2")
+        with pytest.raises(InvalidParameter):
+            Helper.set_property(instance, "engine", "invalid_engine")
 
 
 class TestCsvDuplicateRowDelete(TestCsvTransform):
